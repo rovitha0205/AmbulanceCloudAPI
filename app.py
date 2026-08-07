@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from config import Config
 
@@ -12,6 +12,9 @@ db = SQLAlchemy(app)
 def home():
     return "Ambulance Cloud API Connected"
 
+@app.route("/monitor")
+def monitor():
+    return render_template("monitor.html")
 
 # ---------------------------------------------------
 # Sensor Upload (Replacement for upload.php)
@@ -99,8 +102,8 @@ def latest():
 
     return jsonify({
         "heartbeat": row.heartbeat,
-        "temperature": row.temperature,
-        "spo2": row.spo2,
+        "temperature": row.spo2,
+        "spo2": row.temperature,
         "respiration": row.respiration,
         "server_time": str(row.created_at)
     })

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Ambulance Sensor Monitor</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='monitor.css') }}">
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Ambulance Live Sensor Monitor</h1>
+
+<table>
+
+<thead>
+
+<tr>
+
+<th>Heart Rate</th>
+<th>SpO₂</th>
+<th>Temperature</th>
+<th>Respiration</th>
+<th>Server Time</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+
+<td id="heartbeat">--</td>
+<td id="spo2">--</td>
+<td id="temperature">--</td>
+<td id="respiration">--</td>
+<td id="time">--</td>
+
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
+
+<script src="{{ url_for('static', filename='monitor.js') }}"></script>
+
+</body>
+</html>
