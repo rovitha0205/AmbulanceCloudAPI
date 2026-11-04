@@ -102,8 +102,8 @@ def latest():
 
     return jsonify({
         "heartbeat": row.heartbeat,
-        "temperature": row.spo2,
-        "spo2": row.temperature,
+        "temperature": row.temperature,
+        "spo2": row.spo2,
         "respiration": row.respiration,
         "server_time": str(row.created_at)
     })
@@ -152,6 +152,175 @@ def ecg_history():
 
     return jsonify({
         "ecg": values
+    })
+
+
+
+from datetime import date, datetime
+
+
+# ---------------------------------------------------
+# Spark Analytics API
+# ---------------------------------------------------
+
+def get_latest_spark_run_id():
+
+    query = """
+    SELECT run_id
+    FROM spark_risk_results
+    ORDER BY id DESC
+    LIMIT 1
+    """
+
+    row = db.session.execute(db.text(query)).fetchone()
+
+    if row is None:
+        return None
+
+    return row.run_id
+
+
+def serialize_spark_rows(rows):
+
+    result = []
+
+    for row in rows:
+        record = dict(row._mapping)
+
+        # Convert timestamps into clean ISO format
+        for key, value in record.items():
+            if isinstance(value, (datetime, date)):
+                record[key] = value.isoformat()
+
+        result.append(record)
+
+    return result
+
+
+def get_spark_table_data(table_name, run_id):
+
+    # Only allow the four known Spark tables
+    allowed_tables = {
+        "spark_risk_results",
+        "spark_combined_summary",
+        "spark_hourly_trend",
+        "spark_dashboard_summary"
+    }
+
+    if table_name not in allowed_tables:
+        raise ValueError("Invalid Spark table")
+
+    order_clause = ""
+
+    if table_name == "spark_risk_results":
+        order_clause = "ORDER BY id ASC"
+
+    elif table_name == "spark_hourly_trend":
+        order_clause = 'ORDER BY "time" ASC'
+
+    query = f"""
+    SELECT *
+    FROM {table_name}
+    WHERE run_id = :run_id
+    {order_clause}
+    """
+
+    rows = db.session.execute(
+        db.text(query),
+        {"run_id": run_id}
+    ).fetchall()
+
+    return serialize_spark_rows(rows)
+
+
+def spark_api_response(table_name):
+
+    run_id = get_latest_spark_run_id()
+
+    if run_id is None:
+        return jsonify({
+            "status": "success",
+            "message": "No Spark results available",
+            "run_id": None,
+            "data": []
+        })
+
+    data = get_spark_table_data(table_name, run_id)
+
+    return jsonify({
+        "status": "success",
+        "run_id": run_id,
+        "data": data
+    })
+
+
+# ---------------------------------------------------
+# Individual Spark API Endpoints
+# ---------------------------------------------------
+
+@app.route("/api/spark/risk-results", methods=["GET"])
+def spark_risk_results():
+
+    return spark_api_response("spark_risk_results")
+
+
+@app.route("/api/spark/combined-summary", methods=["GET"])
+def spark_combined_summary():
+
+    return spark_api_response("spark_combined_summary")
+
+
+@app.route("/api/spark/hourly-trend", methods=["GET"])
+def spark_hourly_trend():
+
+    return spark_api_response("spark_hourly_trend")
+
+
+@app.route("/api/spark/dashboard-summary", methods=["GET"])
+def spark_dashboard_summary():
+
+    return spark_api_response("spark_dashboard_summary")
+
+
+# ---------------------------------------------------
+# Combined Spark API Endpoint
+# ---------------------------------------------------
+
+@app.route("/api/spark/latest", methods=["GET"])
+def spark_latest():
+
+    run_id = get_latest_spark_run_id()
+
+    if run_id is None:
+        return jsonify({
+            "status": "success",
+            "message": "No Spark results available",
+            "run_id": None,
+            "risk_results": [],
+            "combined_summary": [],
+            "hourly_trend": [],
+            "dashboard_summary": []
+        })
+
+    return jsonify({
+        "status": "success",
+        "run_id": run_id,
+
+        "risk_results": get_spark_table_data(
+            "spark_risk_results", run_id
+        ),
+
+        "combined_summary": get_spark_table_data(
+            "spark_combined_summary", run_id
+        ),
+
+        "hourly_trend": get_spark_table_data(
+            "spark_hourly_trend", run_id
+        ),
+
+        "dashboard_summary": get_spark_table_data(
+            "spark_dashboard_summary", run_id
+        )
     })
 
 
